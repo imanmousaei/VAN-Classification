@@ -14,10 +14,10 @@ class Mlp(nn.Module):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
-        self.fc1 = nn.Conv2d(in_features, hidden_features, kernel_size=1)
-        self.dwconv = DWConv(hidden_features)
+        self.fc1 = nn.Conv2d(in_features, hidden_features, kernel_size=1) # 1x1
+        self.dwconv = DWConv(hidden_features) # depth-wise 3x3
         self.act = act_layer()
-        self.fc2 = nn.Conv2d(hidden_features, out_features, kernel_size=1)
+        self.fc2 = nn.Conv2d(hidden_features, out_features, kernel_size=1) # 1x1
         self.drop = nn.Dropout(drop)
         self.apply(self._init_weights)
 
@@ -46,14 +46,12 @@ class Mlp(nn.Module):
         return x
 
 
-
-
 class LKA(nn.Module): # large-kernel attention
     def __init__(self, dim):
         super().__init__()
         # If groups=in_channels, each input channel is convolved with its own set of filters
-        self.conv0 = nn.Conv2d(dim, dim, kernel_size=5, padding=2, groups=dim) # depth-wise convolution
-        self.conv_spatial = nn.Conv2d(dim, dim, kernel_size=7, stride=1, padding=9, groups=dim, dilation=3) # depth-wise dilated convolution
+        self.conv0 = nn.Conv2d(dim, dim, kernel_size=5, padding=2, groups=dim) # depth-wise 5x5
+        self.conv_spatial = nn.Conv2d(dim, dim, kernel_size=7, stride=1, padding=9, groups=dim, dilation=3) # depth-wise dilated 7x7
         self.conv1 = nn.Conv2d(dim, dim, kernel_size=1) # 1x1 convolution
 
 
@@ -70,10 +68,10 @@ class Attention(nn.Module):
     def __init__(self, d_model):
         super().__init__()
 
-        self.proj_1 = nn.Conv2d(d_model, d_model, kernel_size=1)
+        self.proj_1 = nn.Conv2d(d_model, d_model, kernel_size=1) # 1x1
         self.activation = nn.GELU()
         self.spatial_gating_unit = LKA(d_model)
-        self.proj_2 = nn.Conv2d(d_model, d_model, kernel_size=1)
+        self.proj_2 = nn.Conv2d(d_model, d_model, kernel_size=1) # 1x1
 
     def forward(self, x):
         shorcut = x.clone()
@@ -98,7 +96,9 @@ class Block(nn.Module):
         self.norm2 = nn.BatchNorm2d(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
-        layer_scale_init_value = 1e-2            
+        layer_scale_init_value = 1e-2     
+        
+        # give weights to different featuremaps       
         self.layer_scale_1 = nn.Parameter(
             layer_scale_init_value * torch.ones((dim)), requires_grad=True)
         self.layer_scale_2 = nn.Parameter(
@@ -121,7 +121,7 @@ class Block(nn.Module):
             if m.bias is not None:
                 m.bias.data.zero_()
 
-    def forward(self, x): # todo: what?
+    def forward(self, x):
         x = x + self.drop_path(self.layer_scale_1.unsqueeze(-1).unsqueeze(-1) * self.attn(self.norm1(x)))
         x = x + self.drop_path(self.layer_scale_2.unsqueeze(-1).unsqueeze(-1) * self.mlp(self.norm2(x)))
         return x
@@ -253,7 +253,7 @@ class VAN(nn.Module):
         return x
 
 
-class DWConv(nn.Module): # depth-wise convolution
+class DWConv(nn.Module): # depth-wise 3x3
     def __init__(self, dim=768):
         super(DWConv, self).__init__()
         
