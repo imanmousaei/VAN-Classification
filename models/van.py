@@ -79,7 +79,7 @@ class Attention(nn.Module):
         x = self.activation(x)
         x = self.spatial_gating_unit(x)
         x = self.proj_2(x)
-        x = x + shorcut
+        x = x + shorcut # not in paper (figure 4)
         return x
 
 
@@ -98,7 +98,7 @@ class Block(nn.Module):
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
         layer_scale_init_value = 1e-2     
         
-        # give weights to different featuremaps       
+        # give weights to different channel       
         self.layer_scale_1 = nn.Parameter(
             layer_scale_init_value * torch.ones((dim)), requires_grad=True)
         self.layer_scale_2 = nn.Parameter(
@@ -244,7 +244,7 @@ class VAN(nn.Module):
             if i != self.num_stages - 1:
                 x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
-        return x.mean(dim=1)
+        return x.mean(dim=1) # AvgPool 1x1
 
     def forward(self, x):
         x = self.forward_features(x)
