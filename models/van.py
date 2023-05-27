@@ -90,7 +90,9 @@ class Block(nn.Module):
         super().__init__()
         self.norm1 = nn.BatchNorm2d(dim)
         self.attn = Attention(dim)
-        # DropPath: randomly disable some connections between layers
+        # DropPath: DropPath is a regularization technique that is used in deep neural networks, 
+        # which randomly drops entire channels or slices of channels of the input tensor during training. 
+        # This technique is similar to Dropout, but instead of dropping individual units, it drops entire paths through the network.
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
         self.norm2 = nn.BatchNorm2d(dim)
@@ -119,7 +121,7 @@ class Block(nn.Module):
             if m.bias is not None:
                 m.bias.data.zero_()
 
-    def forward(self, x):
+    def forward(self, x): # todo: what?
         x = x + self.drop_path(self.layer_scale_1.unsqueeze(-1).unsqueeze(-1) * self.attn(self.norm1(x)))
         x = x + self.drop_path(self.layer_scale_2.unsqueeze(-1).unsqueeze(-1) * self.mlp(self.norm2(x)))
         return x
@@ -170,10 +172,13 @@ class VAN(nn.Module):
         self.depths = depths
         self.num_stages = num_stages
 
+        # Creates a one-dimensional tensor of size `sum(depths)` whose values are evenly spaced from start to end, inclusive. 
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        print(f'dpr = {dpr}')
         cur = 0
 
         for i in range(num_stages):
+            # Conv2d + BatchNorm2d:
             patch_embed = OverlapPatchEmbed(img_size=img_size if i == 0 else img_size // (2 ** (i + 1)),
                                             patch_size=7 if i == 0 else 3,
                                             stride=4 if i == 0 else 2,
